@@ -8,17 +8,19 @@ function gameBoard() {
     for (let i = 0; i < rows; i++) {
         board[i] = [];
         for (let j = 0; j < columns; j++) {
-            board[i].push(0);
+            board[i].push("");
         }
     }
 
-    const getBoard = () => board;
+    // const getBoard = () => board;
 
-    const printBoard = () => console.log(board);
+
+    const getBoard = () => board.map(row => [...row]);
 
     const dropMark = (row, column, mark) => {
+        // console.log(board.map(row => [...row]), board)
         if (row >= 0 && row <= 2 && column >= 0 && column <= 2) {
-            if (board[row][column] === 0) {
+            if (board[row][column] === "") {
                 board[row][column] = mark;
                 return true;
             } else {
@@ -29,11 +31,12 @@ function gameBoard() {
         }
     }
 
-    return { getBoard, printBoard, dropMark};
+    return { getBoard, dropMark };
 };
 
 function gameController(playerOneName = "Player One", playerTwoName = "Player Two") {
     let gameOver = false;
+
     const board = gameBoard();
 
     const players = [
@@ -56,39 +59,34 @@ function gameController(playerOneName = "Player One", playerTwoName = "Player Tw
 
     const playRound = (row, column) => {
         if (gameOver) {
-            console.log('game is over buddy');
+            return "gameover";
         } else if (board.dropMark(row, column, getActivePlayer().mark)) {
             const result = detectWinner();
             if (result != null) {
-                console.log(`${getActivePlayer().name} has won this round`);
-                printRound();
                 gameOver = true;
+                return "win";
             } else if (isBoardFull()) {
                 gameOver = true;
-                printRound();
-                console.log("Game has ended in a tie...");
+                return "tie";
             }
             else {
-                printRound();
                 switchPlayer();
-                console.log(`${getActivePlayer().name}'s turn...`)
+                console.log(`${getActivePlayer().name}'s turn...`);
+                return "valid";
             }
 
         } else {
-            printRound();
-            console.log("Play was unsuccessful...Please try a new square");
+            return "invalid";
         }
     };
 
-    const printRound = () => {
-        board.printBoard();
-    };
+    const getBoard = () => board.getBoard();
 
     const detectWinner = () => {
 
         // detecting horizontal wins
         for (const row of board.getBoard()) {
-            if (row.includes(0)) {
+            if (row.includes("")) {
                 continue;
             }
             if (row.every(mark => mark === row[0])) {
@@ -100,7 +98,7 @@ function gameController(playerOneName = "Player One", playerTwoName = "Player Tw
 
         for (let i = 0; i < 3; i++) {
             const arrayColumn = board.getBoard().map(row => row[i]);
-            if (arrayColumn.includes(0)) {
+            if (arrayColumn.includes("")) {
                 continue;
             }
             if (arrayColumn.every(mark => mark === arrayColumn[0])) {
@@ -114,18 +112,16 @@ function gameController(playerOneName = "Player One", playerTwoName = "Player Tw
         const leftDiagonal = []
         const rightDiagonal = []
 
-        for (const row of board.getBoard()) {
-            leftDiagonal.push(row[board.getBoard().indexOf(row)])
-            rightDiagonal.push(row.toReversed()[board.getBoard().indexOf(row)])
-
+        for (const [index, row] of board.getBoard().entries()) {
+            leftDiagonal.push(row[index]);
+            rightDiagonal.push(row.toReversed()[index]);
         }
 
-        if (!(leftDiagonal.includes(0)) && leftDiagonal.every(mark => mark === leftDiagonal[0])) {
-            console.log('left diagonal wins');
+        if (!(leftDiagonal.includes("")) && leftDiagonal.every(mark => mark === leftDiagonal[0])) {
             return leftDiagonal[0];
         }
 
-        if (!(rightDiagonal.includes(0)) && rightDiagonal.every(mark => mark === rightDiagonal[0])) {
+        if (!(rightDiagonal.includes("")) && rightDiagonal.every(mark => mark === rightDiagonal[0])) {
             console.log('right diagonal wins');
             return rightDiagonal[0];
         }
@@ -135,16 +131,87 @@ function gameController(playerOneName = "Player One", playerTwoName = "Player Tw
 
     const isBoardFull = () => {
         for (const row of board.getBoard()) {
-            if (row.includes(0)) {
+            if (row.includes("")) {
                 return false;
             }
         }
         return true;
     }
 
-    return { getActivePlayer, playRound, printRound}
+    return { getActivePlayer, playRound, getBoard}
 };
 
+function screenController() {
+    const firstPlayerName = prompt("First Player Enter Your Name: ")?.trim() || "Player One";
+    const secondPlayerName = prompt("Second Player Enter Your Name: ")?.trim() || "Player Two";
+    let game = gameController(firstPlayerName, secondPlayerName);
+    const boardDiv = document.querySelector(".board");
+    const playerTurnHeading = document.querySelector(".turn")
 
 
-// const game = gameController();
+    const updateScreen = () => {
+        boardDiv.textContent = "";
+        const board = game.getBoard();
+        const activePlayer = game.getActivePlayer();
+        playerTurnHeading.textContent = `${activePlayer.name}'s turn (You are ${activePlayer.mark})`;
+
+        board.forEach((row, rowIndex) => {
+            row.forEach((square, columnIndex) => {
+                const squareButton = document.createElement("button");
+                squareButton.classList.add("square");
+                squareButton.dataset.row = rowIndex;
+                squareButton.dataset.column = columnIndex;
+                squareButton.textContent = square;
+                boardDiv.appendChild(squareButton);
+
+            })
+        });
+    }
+
+    boardDiv.addEventListener('click', (e) => {
+        const activePlayer = game.getActivePlayer();
+        const selectedRow = e.target.dataset.row;
+        const selectedColumn = e.target.dataset.column;
+
+
+        if (!e.target.classList.contains("square")) return;
+        const result = game.playRound(selectedRow, selectedColumn);
+        switch (result) {
+            case "valid":
+                updateScreen();
+                break;
+            case "invalid":
+                alert("Invalid move try again");
+                break;
+            case "tie":
+                updateScreen();
+                playerTurnHeading.textContent = "Game has ended in a tie";
+                break;
+            case "win":
+                updateScreen();
+                playerTurnHeading.textContent = `${activePlayer.name} has won this round`;
+                break;
+            case "gameover":
+                alert("game is over bud");
+        }
+
+
+
+    })
+
+    const restartBtn = document.querySelector("#restart");
+
+    restartBtn.addEventListener('click', (e) => {
+       game = gameController(firstPlayerName, secondPlayerName);
+       updateScreen();
+    })
+
+   
+    updateScreen();
+
+
+}
+
+
+
+screenController();
